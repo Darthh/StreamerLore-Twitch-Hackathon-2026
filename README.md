@@ -94,6 +94,10 @@ Content-Type: application/json
 
 Moderator authentication is required in live mode. The model can attach only a supplied clip URL supported by a transcript. Chat spikes are review signals: repeated phrases from distinct viewers can prompt a private draft, but cannot establish historical truth. AI drafts require moderator approval; familiar approved lore can trigger a drop after three distinct viewers mention it. Missing credentials or provider failures produce explicit unavailable/error states and preserve existing content.
 
+## Visual reference
+
+The UI follows Twitch's dark theme, including Inter body text, Roobert headings, a 50px top bar, and a 240px channel sidebar. Exact font faces load from Twitch's public asset CDN. Colors and dimensions were verified with REA and a live browser inspection; [the reference notes](docs/twitch-reference.md) record the sources and capture commands.
+
 ## Storage and verification
 
 The React/Vite interface receives approved state through server-sent events at `/api/events`. The Express server stores channel history, review state, votes, and the cookie-signing secret in SQLite under `data/`. Default files are `data/demo.sqlite` and `data/live.sqlite`; `STREAMLORE_DB_PATH` overrides the path. Back up the database if you want to preserve a channel’s history. A new live broadcast resets the current-stream timeline and recap while keeping channel lore.
