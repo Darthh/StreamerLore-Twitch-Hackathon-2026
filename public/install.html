@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0e0e10">
+  <meta name="description" content="Add StreamLore to your Twitch channel. Help viewers catch up on the stream and get in on the channel lore.">
+  <title>Add StreamLore to Twitch</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/install.css">
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/" aria-label="StreamLore home"><span class="brand-icon" aria-hidden="true">S</span><strong>StreamLore</strong></a><a class="header-link" data-demo-link href="/">Explore the demo <span aria-hidden="true">↗</span></a></header>
+  <main>
+    <div class="intro"><span class="eyebrow">YOUR CHANNEL, IN CONTEXT</span><h1>Let everyone in on the story.</h1><p>Catch viewers up on the stream. Give inside jokes a backstory. StreamLore brings both to your Twitch channel.</p></div>
+    <section class="install-card" aria-labelledby="install-heading">
+      <div class="card-top"><span class="panel-icon" aria-hidden="true">S</span><div><span class="eyebrow">NATIVE TWITCH PANEL</span><h2 id="install-heading">StreamLore for your channel</h2></div><span class="status-badge" id="release-badge">Checking status</span></div>
+      <p class="card-description">Your viewers get a catch-up recap, a timeline of the moments that matter, and your community’s approved lore—all from a panel on your channel.</p>
+      <div class="availability" id="availability" role="status"><span class="status-dot" aria-hidden="true"></span><div><strong id="availability-title">Checking availability…</strong><p id="availability-description">Finding the latest channel installation status.</p></div></div>
+      <div class="primary-actions"><a class="button primary disabled" id="install-button" aria-disabled="true" tabindex="-1">Add to Twitch <span aria-hidden="true">↗</span></a><a class="button secondary" data-demo-link href="/">Try the StreamLore demo</a></div>
+      <p class="install-note" id="install-note">StreamLore is installed through Twitch. Viewers don’t need to download anything.</p>
+      <div class="preview-row" id="preview-row" hidden><a id="preview-link" class="text-link" target="_blank" rel="noopener noreferrer">Preview the native panel <span aria-hidden="true">↗</span></a><span>Read-only preview</span></div>
+    </section>
+    <section class="steps-section" aria-labelledby="steps-heading"><div class="section-heading"><h2 id="steps-heading">Three steps. A little more belonging.</h2><p>Once StreamLore is available on Twitch:</p></div><ol class="steps"><li><span class="step-number">1</span><h3>Add to your channel</h3><p>Open the Twitch listing and add StreamLore in your Extensions Manager.</p></li><li><span class="step-number">2</span><h3>Make the story yours</h3><p>Configure your channel, add a stream objective, and approve the first pieces of lore.</p></li><li><span class="step-number">3</span><h3>Activate your panel</h3><p>Choose a panel slot in Twitch. Viewers can catch up and discover the backstory right there.</p></li></ol></section>
+    <details class="developer-readiness"><summary><span><span class="readiness-dot" id="readiness-dot" aria-hidden="true"></span>Developer readiness</span><span class="summary-hint" id="readiness-label">Checking setup</span></summary><div class="readiness-content"><p class="developer-intro">Building or testing this channel integration? These checks show what remains before a public launch.</p><ul class="readiness-list" id="readiness-list"><li>Loading setup checks…</li></ul><div id="missing-section" hidden><h3>Still needed</h3><ul class="missing-list" id="missing-list"></ul></div><p class="developer-help">Register the Extension and OAuth application in Twitch, configure the backend’s private environment variables, then complete Hosted Test and review. Keep secrets on the server.</p><div class="developer-actions"><a class="button secondary" href="https://github.com/Darthh/Twitch-Hackathon-2026/blob/main/docs/twitch-extension-launch.md" target="_blank" rel="noopener noreferrer">Setup guide <span aria-hidden="true">↗</span></a><a id="package-link" class="text-link" hidden>Download package</a></div><p class="package-note" id="package-note" hidden></p></div></details>
+    <div class="error" id="error" role="alert" hidden><p id="error-message"></p><button class="button secondary" id="retry" type="button">Try again</button></div>
+    <footer><span>StreamLore</span><p>A little context. A better community.</p></footer>
+  </main>
+  <script type="module" src="/install.js"></script>
+</body>
+</html>

@@ -2,7 +2,7 @@ import express, { type Request, type Response, type NextFunction } from 'express
 import { randomBytes, randomUUID, createHash, createHmac, timingSafeEqual } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { Connection, Lore, LoreCategory, StreamState } from '../shared/types.ts';
+import type { Connection, ContentAuthor, Lore, LoreCategory, StreamState } from '../shared/types.ts';
 import type { Store } from './store.ts';
 import { advanceDemo } from './seed.ts';
 import { aiConfigured, draftLore, summarizeStream } from './ai.ts';
@@ -52,9 +52,14 @@ function cookies(req: Request): Record<string, string> {
 function local(req: Request) { return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress ?? ''); }
 const digest = (value: string) => createHash('sha256').update(value).digest();
 
-export function createApp({ store, mode = 'demo', password = '', publicUrl = 'http://localhost:5173' }: { store: Store; mode?: 'demo' | 'live'; password?: string; publicUrl?: string }) {
+export function createApp({ store, mode = 'demo', password = '', publicUrl = 'http://localhost:5173', authorizeModerator, trustedRequest, voterIdentity, contentAuthor, extensionManaged = false, staticFiles = true }: {
+  store: Store; mode?: 'demo' | 'live'; password?: string; publicUrl?: string;
+  authorizeModerator?: (req: Request) => boolean; trustedRequest?: (req: Request) => boolean;
+  voterIdentity?: (req: Request) => string | undefined; contentAuthor?: (req: Request) => ContentAuthor | undefined;
+  extensionManaged?: boolean; staticFiles?: boolean;
+}) {
   const demo = mode === 'demo';
-  if (!demo && password.length < 12) throw new Error('Set STREAMLORE_MOD_PASSWORD to at least 12 characters before starting live mode.');
+  if (!demo && !authorizeModerator && password.length < 12) throw new Error('Set STREAMLORE_MOD_PASSWORD to at least 12 characters before starting live mode.');
   const parsedPublicUrl = new URL(publicUrl);
   if (!['http:', 'https:'].includes(parsedPublicUrl.protocol) || parsedPublicUrl.username || parsedPublicUrl.password) throw new Error('STREAMLORE_PUBLIC_URL must be a public HTTP(S) URL without credentials.');
   publicUrl = publicUrl.replace(/\/$/, '');
@@ -71,6 +76,7 @@ export function createApp({ store, mode = 'demo', password = '', publicUrl = 'ht
   let dropTimer: ReturnType<typeof setTimeout> | undefined;
   if (store.read().loreDropId) store.update(data => { data.loreDropId = null; });
   const authenticated = (req: Request) => {
+    if (authorizeModerator) return authorizeModerator(req);
     if (demo && local(req)) return true;
     const token = cookies(req).streamlore_session;
     const expiry = token && sessions.get(token);
@@ -96,7 +102,7 @@ export function createApp({ store, mode = 'demo', password = '', publicUrl = 'ht
     dropTimer.unref();
   }
   function rateLimit(req: Request, key: string, max: number, windowMs: number) {
-    const id = `${key}:${req.socket.remoteAddress}`;
+    const id = `${key}:${voterIdentity?.(req) || req.socket.remoteAddress}`;
     const now = Date.now();
     for (const [key, item] of limits) if (now - item.at > 3_600_000) limits.delete(key);
     let entry = limits.get(id);
@@ -110,19 +116,19 @@ export function createApp({ store, mode = 'demo', password = '', publicUrl = 'ht
       if (req.body !== undefined && (!req.body || typeof req.body !== 'object' || Array.isArray(req.body))) return res.status(400).json({ error: 'Send a JSON object.' });
       req.body ??= {};
       const origin = req.headers.origin;
-      if (origin) {
+      if (origin && !trustedRequest?.(req)) {
         let host: string;
         try { host = new URL(origin).host; } catch { return res.status(403).json({ error: 'Invalid request origin.' }); }
         if (host !== req.headers.host) return res.status(403).json({ error: 'Cross-site changes are not allowed.' });
       }
-      if (req.headers['sec-fetch-site'] === 'cross-site') return res.status(403).json({ error: 'Cross-site changes are not allowed.' });
+      if (req.headers['sec-fetch-site'] === 'cross-site' && !trustedRequest?.(req)) return res.status(403).json({ error: 'Cross-site changes are not allowed.' });
       try { rateLimit(req, 'writes', 90, 60_000); } catch (error) { return next(error); }
     }
     next();
   });
   app.get('/api/health', (_req, res) => res.json({ ok: true, mode }));
   app.get('/api/state', (_req, res) => res.json(state()));
-  app.get('/api/auth/session', (req, res) => res.json({ authenticated: authenticated(req), demoAccess: demo && local(req) }));
+  app.get('/api/auth/session', (req, res) => res.json({ authenticated: authenticated(req), demoAccess: demo && local(req), ...(extensionManaged ? { extensionManaged: true } : {}) }));
   app.post('/api/auth/login', (req, res) => {
     rateLimit(req, 'login', 8, 15 * 60_000);
     const supplied = text(req.body.password, 'Password', 256);
@@ -166,12 +172,13 @@ export function createApp({ store, mode = 'demo', password = '', publicUrl = 'ht
     const stored = cookies(req).streamlore_voter;
     const [id = '', signature = ''] = (stored || '').split('.');
     const sign = (value: string) => createHmac('sha256', secret).update(value).digest('hex');
+    const externalVoter = voterIdentity?.(req);
     let voter = id;
-    if (!/^[a-f0-9]{32}$/.test(id) || signature !== sign(id)) {
+    if (!externalVoter && (!/^[a-f0-9]{32}$/.test(id) || signature !== sign(id))) {
       voter = randomBytes(16).toString('hex');
       res.cookie('streamlore_voter', `${voter}.${sign(voter)}`, { httpOnly: true, sameSite: 'strict', secure: req.secure, maxAge: 365 * 86_400_000 });
     }
-    const result = store.vote(String(req.params.id), `browser:${voter}`);
+    const result = store.vote(String(req.params.id), externalVoter || `browser:${voter}`);
     if (result.error) return res.status(result.status!).json({ error: result.error });
     broadcast(); res.json(result.entry);
   });
@@ -191,16 +198,25 @@ export function createApp({ store, mode = 'demo', password = '', publicUrl = 'ht
     if (!['milestone', 'setback', 'highlight', 'context'].includes(kind)) throw new HttpError(400, 'Choose a valid moment type.');
     const url = clipUrl(req.body.clipUrl);
     store.update(data => {
-      data.moments.unshift({ id: randomUUID(), title, body, kind, at: new Date().toISOString(), offsetSeconds: Math.max(0, Math.floor((Date.now() - (Date.parse(data.channel.startedAt) || Date.now())) / 1000)), source: 'moderator', clipUrl: url });
+      data.moments.unshift({ id: randomUUID(), title, body, kind, at: new Date().toISOString(), offsetSeconds: Math.max(0, Math.floor((Date.now() - (Date.parse(data.channel.startedAt) || Date.now())) / 1000)), source: 'moderator', clipUrl: url, ...(contentAuthor?.(req) ? { author: contentAuthor(req) } : {}) });
       data.moments = data.moments.slice(0, 300);
       data.stream.summary = data.moments.slice(0, 3).map(item => `${item.title}: ${item.body}`);
       data.stream.updatedAt = new Date().toISOString();
     });
     broadcast(); res.status(201).json(state());
   });
+  app.delete('/api/mod/moments/:id', (req, res) => {
+    store.update(data => {
+      if (!data.moments.some(item => item.id === req.params.id)) throw new HttpError(404, 'Moment not found.');
+      data.moments = data.moments.filter(item => item.id !== req.params.id);
+      data.stream.summary = data.moments.slice(0, 3).map(item => `${item.title}: ${item.body}`);
+      data.stream.updatedAt = new Date().toISOString();
+    });
+    broadcast(); res.json(state());
+  });
   app.post('/api/mod/lore', (req, res) => {
     const fields = loreFields(req.body);
-    const item = { ...fields, id: randomUUID(), status: 'pending', votes: 0, source: 'moderator', createdAt: new Date().toISOString() } as Lore;
+    const item = { ...fields, id: randomUUID(), status: 'pending', votes: 0, source: 'moderator', createdAt: new Date().toISOString(), ...(contentAuthor?.(req) ? { author: contentAuthor(req) } : {}) } as Lore;
     store.update(data => {
       if (data.lore.length >= 1000) throw new HttpError(409, 'The library is full. Review existing entries first.');
       if (data.lore.some(entry => entry.status !== 'rejected' && entry.term.toLowerCase() === item.term.toLowerCase())) throw new HttpError(409, 'That term already has a lore entry. Edit the existing one.');
@@ -217,6 +233,7 @@ export function createApp({ store, mode = 'demo', password = '', publicUrl = 'ht
       if (!item) throw new HttpError(404, 'Lore entry not found.');
       if (fields.term && data.lore.some(entry => entry.id !== item.id && entry.status !== 'rejected' && entry.term.toLowerCase() === fields.term!.toLowerCase())) throw new HttpError(409, 'That term already has a lore entry.');
       Object.assign(item, fields); updated = item;
+      if (fields.status && ['approved', 'nominated'].includes(fields.status) && contentAuthor?.(req)) item.reviewedBy = contentAuthor(req);
       if (item.status !== 'approved' && data.loreDropId === item.id) data.loreDropId = null;
     });
     broadcast(); res.json(updated);
@@ -283,7 +300,7 @@ export function createApp({ store, mode = 'demo', password = '', publicUrl = 'ht
   app.post('/api/demo/reset', (_req, res) => { if (!demo) throw new HttpError(403, 'Demo controls are disabled in live mode.'); clearTimeout(dropTimer); store.reset(); broadcast(); res.json(state()); });
   app.use('/api', (_req, res) => res.status(404).json({ error: 'API route not found.' }));
   const dist = resolve('dist');
-  if (existsSync(dist)) {
+  if (staticFiles && existsSync(dist)) {
     app.use(express.static(dist));
     app.get('/{*path}', (_req, res) => res.sendFile(resolve(dist, 'index.html')));
   }
@@ -295,7 +312,7 @@ export function createApp({ store, mode = 'demo', password = '', publicUrl = 'ht
   let spikeAt = 0;
   let lastDropAt = 0;
   return {
-    app, state, catchup, loreReply,
+    app, state, catchup, loreReply, notify: broadcast,
     setTwitchStatus(status: Connection) { twitch = status; broadcast(); },
     setChannel(channel: StreamState['channel']) {
       store.update(data => {

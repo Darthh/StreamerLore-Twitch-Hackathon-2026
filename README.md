@@ -24,6 +24,26 @@ npm start
 
 Then open **http://localhost:8787**. Change `STREAMLORE_PUBLIC_URL` to match the URL viewers will use.
 
+## Add to a Twitch channel
+
+StreamLore now includes a **native Twitch panel Extension**, a mobile view, broadcaster configuration, and Live Config controls. Open **http://localhost:5173/install** for installation readiness, or [preview the native panel](http://localhost:5173/extension/panel.html?demo=1) with fictional data. The preview is read-only and does not impersonate Twitch authorization.
+
+The native frontend is in `extension/`. The backend verifies Twitch-signed Extension JWTs and keeps each channel's history, votes, and moderation separate. Broadcasters connect through Twitch OAuth; access/refresh tokens are encrypted at rest. Viewers never receive those tokens. Signed-in viewers can vote; anonymous identities are not stored. Creators publish with Twitch-verified attribution and can remove published stories and moments.
+
+```sh
+# Explicit development upload, not a public release:
+npm run build:extension -- --api-url http://127.0.0.1:8787 --local-test
+
+# After hosting the backend at your real public HTTPS origin:
+npm run build:extension -- --api-url https://YOUR-BACKEND
+```
+
+This produces `release/streamlore-twitch-extension.zip` and `dist-extension/`. Python 3 is required by the ZIP builder. The ZIP contains only human-readable frontend runtime assets, never server code or credentials. Use `STREAMLORE_MODE=extension` on the public backend; never expose demo mode through a public tunnel.
+
+The remaining launch steps are to register the Extension and separate OAuth application, configure the backend secrets, run Local Test and Hosted Test, submit to Twitch review, then release the approved version. Streamers can then **Add → Configure → Activate** it without installing local software. Registration and Twitch approval are not completed by a local build. Follow the exact [native Extension launch guide](docs/twitch-extension-launch.md).
+
+A Dockerfile is supplied for persistent Node hosting. Mount `/app/data`, use a stable encryption key, and supply the environment variables from `.env.example`. The backend needs a public HTTPS reverse proxy and an always-running process for chat connections. The Docker image and public deployment have not been verified here.
+
 ## Try the demo
 
 1. Read the catch-up card, current objective, and timestamped timeline.

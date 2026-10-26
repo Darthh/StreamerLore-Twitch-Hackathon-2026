@@ -62,6 +62,25 @@ test('Twitch rejects expired credentials without opening a socket or exposing th
   client.close();
 });
 
+test('account-backed Twitch requests fetch current credentials and retry a 401 with one refresh', async t => {
+  const requests: string[] = [], refreshes: boolean[] = [], statuses: Connection[] = [];
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    requests.push(new Headers(init.headers).get('Authorization') || '');
+    if (requests.length === 1) return new Response('{}', { status: 401 });
+    // Deliberately omit a required scope to stop before opening any real socket.
+    return new Response(JSON.stringify({ user_id: '12345', client_id: 'oauth-client', scopes: ['user:read:chat'] }));
+  });
+  const client = startTwitch({
+    config: { clientId: 'oauth-client', channelLogin: 'testchannel', async getAccessToken(force) { refreshes.push(Boolean(force)); return force ? 'rotated-token' : 'old-token'; } },
+    onChat() {}, onStatus(status) { statuses.push(status); }, getCatchup: () => '', getLore: () => '',
+  });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(refreshes, [false, true]);
+  assert.deepEqual(requests, ['OAuth old-token', 'OAuth rotated-token']);
+  assert.ok(statuses.some(status => status.message.includes('needs user:read:chat and user:write:chat')));
+  assert.ok(statuses.every(status => !status.connected)); client.close();
+});
+
 test('missing API key is an explicit unavailable state', async t => {
   const previous = process.env.OPENAI_API_KEY;
   delete process.env.OPENAI_API_KEY;

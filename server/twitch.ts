@@ -2,6 +2,7 @@ import WebSocket from 'ws';
 import type { Connection, StreamState } from '../shared/types.ts';
 
 type TwitchOptions = {
+  config?: { clientId: string; channelLogin: string; getAccessToken: (forceRefresh?: boolean) => Promise<string> };
   onChat: (user: string, text: string) => void;
   onStatus: (status: Connection) => void;
   getCatchup: () => string;
@@ -26,11 +27,11 @@ export function chatReply(command: { name: 'catchup' | 'lore'; query: string }, 
 }
 
 export function startTwitch(options: TwitchOptions): { close: () => void } {
-  const clientId = process.env.TWITCH_CLIENT_ID?.trim();
+  const clientId = options.config?.clientId.trim() || process.env.TWITCH_CLIENT_ID?.trim();
   const token = process.env.TWITCH_ACCESS_TOKEN?.trim().replace(/^oauth:/, '');
-  const channelLogin = process.env.TWITCH_CHANNEL?.trim().replace(/^@|^#/, '').toLowerCase();
+  const channelLogin = (options.config?.channelLogin || process.env.TWITCH_CHANNEL)?.trim().replace(/^@|^#/, '').toLowerCase();
   const publicUrl = process.env.STREAMLORE_PUBLIC_URL || '';
-  const configured = Boolean(clientId && token && channelLogin);
+  const configured = Boolean(clientId && (options.config?.getAccessToken || token) && channelLogin);
   const status = (connected: boolean, message: string) => options.onStatus({ configured, connected, message });
   if (!configured) {
     status(false, 'Twitch is not connected. Add your channel, client ID, and user access token.');
@@ -44,15 +45,30 @@ export function startTwitch(options: TwitchOptions): { close: () => void } {
   let channelTimer: ReturnType<typeof setInterval> | undefined;
   let botId = '', broadcasterId = '', broadcasterName = channelLogin!, broadcasterImage = '', attempts = 0, lastReply = 0;
   const seen = new Set<string>();
-  const headers = { Authorization: `Bearer ${token}`, 'Client-Id': clientId! };
   class TwitchError extends Error { code: number; constructor(code: number, message: string) { super(message); this.code = code; } }
 
   async function request(url: string, init: RequestInit = {}) {
     let response: Response;
-    try { response = await fetch(url, { ...init, headers: { ...headers, ...init.headers }, signal: AbortSignal.timeout(9000) }); }
-    catch { throw new Error('Twitch could not be reached. Reconnecting shortly.'); }
+    const validation = url === 'https://id.twitch.tv/oauth2/validate';
+    async function send(forceRefresh = false) {
+      let accessToken = token;
+      if (options.config) {
+        try { accessToken = await options.config.getAccessToken(forceRefresh); }
+        catch { throw new TwitchError(401, 'Twitch chat authorization needs reconnecting. Open the extension configuration to reconnect.'); }
+      }
+      if (stopped) throw new Error('Twitch chat connection was stopped.');
+      return fetch(url, { ...init, headers: { ...init.headers, Authorization: `${validation ? 'OAuth' : 'Bearer'} ${accessToken}`, 'Client-Id': clientId! }, signal: AbortSignal.timeout(9000) });
+    }
+    try {
+      response = await send();
+      // Refresh an OAuth grant once after a 401, including early revocation/expiry.
+      if (response.status === 401 && options.config) response = await send(true);
+    } catch (error) {
+      if (error instanceof TwitchError) throw error;
+      throw new Error('Twitch could not be reached. Reconnecting shortly.');
+    }
     if (!response.ok) {
-      if (response.status === 401) throw new TwitchError(401, 'Twitch authorization expired or was revoked. Replace TWITCH_ACCESS_TOKEN and restart.');
+      if (response.status === 401) throw new TwitchError(401, options.config ? 'Twitch chat authorization needs reconnecting. Open the extension configuration to reconnect.' : 'Twitch authorization expired or was revoked. Replace TWITCH_ACCESS_TOKEN and restart.');
       if (response.status === 403) throw new TwitchError(403, 'Twitch denied access. Check chat scopes and channel permissions.');
       throw new TwitchError(response.status, `Twitch request failed (${response.status}). Reconnecting shortly.`);
     }
@@ -73,7 +89,7 @@ export function startTwitch(options: TwitchOptions): { close: () => void } {
   }
 
   async function validate() {
-    const data = await request('https://id.twitch.tv/oauth2/validate', { headers: { Authorization: `OAuth ${token}` } });
+    const data = await request('https://id.twitch.tv/oauth2/validate');
     if (!data.user_id || data.client_id !== clientId) throw new TwitchError(401, 'Use a Twitch user access token issued for TWITCH_CLIENT_ID.');
     if (!Array.isArray(data.scopes) || !['user:read:chat', 'user:write:chat'].every(scope => data.scopes.includes(scope))) {
       throw new TwitchError(403, 'Twitch token needs user:read:chat and user:write:chat scopes.');

@@ -6,6 +6,7 @@ export type Snapshot = {
   channel: StreamState['channel']; stream: StreamState['stream']; moments: Moment[]; lore: Lore[];
   loreDropId: string | null; scenarioStep: number; captions: string;
   chat: { user: string; text: string; at: string }[];
+  extensionConfigured?: boolean;
 };
 
 export function createSeed(demo: boolean, now = Date.now()): Snapshot {

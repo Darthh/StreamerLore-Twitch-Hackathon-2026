@@ -1,0 +1,12 @@
+.git
+node_modules
+data
+dist
+dist-extension
+release
+artifacts
+.env
+.env.*
+*.log
+*.sqlite*
+.DS_Store
