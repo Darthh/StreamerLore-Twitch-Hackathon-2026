@@ -42,7 +42,7 @@ export function startTwitch(options: TwitchOptions): { close: () => void } {
   let retry: ReturnType<typeof setTimeout> | undefined;
   let validationTimer: ReturnType<typeof setInterval> | undefined;
   let channelTimer: ReturnType<typeof setInterval> | undefined;
-  let botId = '', broadcasterId = '', broadcasterName = channelLogin!, attempts = 0, lastReply = 0;
+  let botId = '', broadcasterId = '', broadcasterName = channelLogin!, broadcasterImage = '', attempts = 0, lastReply = 0;
   const seen = new Set<string>();
   const headers = { Authorization: `Bearer ${token}`, 'Client-Id': clientId! };
   class TwitchError extends Error { code: number; constructor(code: number, message: string) { super(message); this.code = code; } }
@@ -88,7 +88,7 @@ export function startTwitch(options: TwitchOptions): { close: () => void } {
     ]);
     if (stopped) return;
     const stream = streams.data?.[0], channel = channels.data?.[0];
-    options.onChannel?.({ login: channelLogin!, displayName: broadcasterName, category: stream?.game_name || channel?.game_name || '', title: stream?.title || channel?.title || '', live: Boolean(stream), startedAt: stream?.started_at || '' });
+    options.onChannel?.({ login: channelLogin!, displayName: broadcasterName, profileImageUrl: broadcasterImage, category: stream?.game_name || channel?.game_name || '', title: stream?.title || channel?.title || '', live: Boolean(stream), startedAt: stream?.started_at || '' });
   }
 
   function scheduleReconnect() {
@@ -180,7 +180,7 @@ export function startTwitch(options: TwitchOptions): { close: () => void } {
     await validate();
     const users = await request(`https://api.twitch.tv/helix/users?login=${encodeURIComponent(channelLogin!)}`);
     if (!users.data?.[0]?.id) throw new TwitchError(403, 'TWITCH_CHANNEL was not found. Use the channel login without a URL.');
-    broadcasterId = users.data[0].id; broadcasterName = users.data[0].display_name;
+    broadcasterId = users.data[0].id; broadcasterName = users.data[0].display_name; broadcasterImage = users.data[0].profile_image_url || '';
     if (stopped) return;
     // Opening the socket first leaves its ten-second subscription deadline free of lookup requests.
     connect();

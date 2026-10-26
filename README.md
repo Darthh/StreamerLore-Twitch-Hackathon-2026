@@ -11,7 +11,9 @@ npm install
 npm run dev
 ```
 
-Open **http://localhost:5173**. No credentials are needed for the fictional `pixelpilot` demo. The API runs on `127.0.0.1:8787`; Vite proxies `/api` to it.
+Open **http://localhost:5173**. No credentials are needed for the `TheDarthh` demo, which uses a real profile picture with fictional stream history. The API runs on `127.0.0.1:8787`; Vite proxies `/api` to it.
+
+The example avatar is a local copy of [TheDarthh's public Twitch profile image](https://static-cdn.jtvnw.net/jtv_user_pictures/772d27eb-4c01-4ae5-815d-99ae741024f1-profile_image-600x600.png).
 
 For a production build served by the Node server:
 

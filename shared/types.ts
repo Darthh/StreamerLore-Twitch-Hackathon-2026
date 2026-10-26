@@ -11,7 +11,7 @@ export type Moment = {
 export type Connection = { configured: boolean; connected: boolean; message: string };
 export type StreamState = {
   mode: 'demo' | 'live';
-  channel: { login: string; displayName: string; category: string; title: string; live: boolean; startedAt: string };
+  channel: { login: string; displayName: string; profileImageUrl?: string; category: string; title: string; live: boolean; startedAt: string };
   stream: { objective: string; summary: string[]; updatedAt: string };
   moments: Moment[]; lore: Lore[]; nominations: Lore[]; loreDrop: Lore | null;
   stats: { moments: number; lore: number; pending: number };

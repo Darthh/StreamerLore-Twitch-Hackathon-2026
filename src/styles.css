@@ -169,6 +169,7 @@ select option { background: var(--surface); }
 .channel-switch > svg { width: 14px; color: var(--muted); }
 .avatar { height: 36px; width: 36px; border-radius: 50%; background: #5c16c5; color: #fff; display: inline-flex; justify-content: center; align-items: center; font-family: Roobert, sans-serif; font-weight: 700; font-size: 29px; overflow: hidden; flex-shrink: 0; position: relative; }
 .avatar > span { transform: translateY(-2px); }
+.avatar > img { width: 100%; height: 100%; object-fit: cover; }
 .avatar > i { position: absolute; width: 4px; height: 4px; background: #fff; top: 12px; right: 11px; }
 .avatar.small { width: 30px; height: 30px; font-size: 25px; }
 .avatar.small > i { top: 9px; right: 9px; }
