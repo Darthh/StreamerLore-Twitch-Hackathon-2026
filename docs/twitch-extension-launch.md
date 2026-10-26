@@ -2,6 +2,8 @@
 
 This procedure prepares the native panel and mobile experience. Building the ZIP does not register, approve, release, or activate an Extension in Twitch.
 
+**Account prerequisite:** Enable two-factor authentication on the Twitch developer account in [Security settings](https://www.twitch.tv/settings/security). Twitch blocks Extension creation until 2FA is enabled. Complete that account-security step yourself; never put verification or recovery codes in project files or chat.
+
 1. **Run the EBS on persistent hosting.** The Extension Backend Service is the Node.js 24+ server in this repository. Run `npm install`, `npm run build`, and `npm start` behind a public HTTPS address. Keep its SQLite data and encryption key across restarts; an ephemeral function filesystem cannot preserve channel history or OAuth credentials. Hosting may have costs: check your account’s actual allowance before provisioning anything.
 
 2. **Register the Extension.** In the [Twitch developer console](https://dev.twitch.tv/console/extensions), create a StreamLore Extension and enable **Panel** and **Mobile**. Set the viewer paths to `panel.html` and `mobile.html`, the configuration path to `config.html`, and the live configuration path to `live.html`. Enable **Request Identity Link** for moderators who publish content. Leave the server-side **Required Configuration** identifier empty for this version: the frontend configuration marker does not implement Twitch's server-side configuration-status API. Configuration uses the EBS, rather than a local password. Twitch’s [lifecycle guide](https://dev.twitch.tv/docs/extensions/life-cycle/) explains these fields and the testing states.
