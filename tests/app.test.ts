@@ -167,6 +167,25 @@ test('moderator notes become timestamped catch-up moments', async t => {
   assert.match((await request('/api/catchup')).data.text, /https:\/\/streamlore.example/);
 });
 
+test('missing or non-object request bodies return validation errors instead of server errors', async t => {
+  const { request } = await fixture(t);
+  assert.equal((await request('/api/mod/objective', 'POST')).status, 400);
+  assert.equal((await request('/api/mod/lore', 'POST')).status, 400);
+  assert.equal((await request('/api/auth/login', 'POST')).status, 400);
+  assert.equal((await request('/api/mod/lore', 'POST', [])).status, 400);
+  assert.equal((await request('/api/mod/lore', 'POST', null)).status, 400);
+});
+
+test('offline Twitch metadata does not produce an invalid moment timestamp', async t => {
+  const { request, runtime } = await fixture(t);
+  const previous = runtime.state().channel;
+  runtime.setChannel({ ...previous, live: false, startedAt: '' });
+  const result = await request('/api/mod/moments', 'POST', { title: 'An offline note', body: 'The moderator records a confirmed detail.', kind: 'context' });
+  assert.equal(result.status, 201);
+  assert.ok(Number.isFinite(result.data.moments[0].offsetSeconds));
+  assert.ok(result.data.moments[0].offsetSeconds >= 0);
+});
+
 test('lore drop chat trigger requires three different viewers mentioning an approved term', async t => {
   const { runtime } = await fixture(t);
   runtime.ingestChat('same-viewer', 'refrigerator');
@@ -184,10 +203,12 @@ test('SQLite persists edits and vote deduplication across store reopen', () => {
   const path = join(directory, 'state.sqlite');
   let store = createStore(path, true);
   try {
+    const cookieSecret = Buffer.from(store.cookieSecret);
     store.update(state => { state.stream.objective = 'Persist this objective'; });
     assert.equal(store.vote('refrigerator', 'fixed-voter').entry?.votes, 129);
     store.close();
     store = createStore(path, true);
+    assert.deepEqual(store.cookieSecret, cookieSecret, 'signed browser identities must survive server restarts');
     assert.equal(store.read().stream.objective, 'Persist this objective');
     assert.equal(store.vote('refrigerator', 'fixed-voter').status, 409);
     store.reset();

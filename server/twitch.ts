@@ -17,9 +17,12 @@ export function parseCommand(text: string): { name: 'catchup' | 'lore' | 'lorevo
 
 export function chatReply(command: { name: 'catchup' | 'lore'; query: string }, options: Pick<TwitchOptions, 'getCatchup' | 'getLore'>, publicUrl: string): string {
   const text = command.name === 'catchup' ? options.getCatchup() : options.getLore(command.query);
-  const link = /^https?:\/\//.test(publicUrl) ? publicUrl.replace(/\/$/, '') : '';
+  const cleaned = text.replace(/[\r\n]+/g, ' ');
+  const sourceLink = cleaned.match(/https?:\/\/\S+$/)?.[0];
+  const link = sourceLink || (/^https?:\/\//.test(publicUrl) ? publicUrl.replace(/\/$/, '') : '');
   const suffix = link ? ` · ${link}` : '';
-  return `${text.replace(/[\r\n]+/g, ' ').slice(0, Math.max(0, 490 - suffix.length))}${suffix}`.slice(0, 500);
+  const body = sourceLink ? cleaned.slice(0, -sourceLink.length).trim() : cleaned;
+  return `${body.slice(0, Math.max(0, 490 - suffix.length))}${suffix}`.slice(0, 500);
 }
 
 export function startTwitch(options: TwitchOptions): { close: () => void } {

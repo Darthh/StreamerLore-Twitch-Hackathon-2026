@@ -29,6 +29,10 @@ test('chat replies are single-line, bounded, and preserve companion URL', () => 
   assert.ok(reply.endsWith('https://example.com'));
   assert.equal(chatReply({ name: 'lore', query: 'fridge' }, options, ''), 'Approved fridge Origin');
   assert.ok(!chatReply({ name: 'catchup', query: '' }, options, 'javascript:alert(1)').includes('javascript:'));
+  const clip = 'https://clips.twitch.tv/VerifiedOriginClip';
+  const longLore = chatReply({ name: 'lore', query: 'fridge' }, { ...options, getLore: () => `${'Backstory '.repeat(150)}${clip}` }, 'https://example.com');
+  assert.ok(longLore.length <= 500);
+  assert.ok(longLore.endsWith(clip));
 });
 
 test('Twitch without credentials makes no requests and reports disconnected', t => {

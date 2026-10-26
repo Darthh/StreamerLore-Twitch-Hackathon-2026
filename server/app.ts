@@ -6,6 +6,7 @@ import type { Connection, Lore, LoreCategory, StreamState } from '../shared/type
 import type { Store } from './store.ts';
 import { advanceDemo } from './seed.ts';
 import { aiConfigured, draftLore, summarizeStream } from './ai.ts';
+import { answerLoreQuestion } from '../shared/lore.ts';
 
 const categories: LoreCategory[] = ['Inside joke', 'Tradition', 'Character', 'Moment'];
 class HttpError extends Error { status: number; constructor(status: number, message: string) { super(message); this.status = status; } }
@@ -156,7 +157,7 @@ export function createApp({ store, mode = 'demo', password = '', publicUrl = 'ht
   }
   function loreReply(query: string) {
     if (!query.trim()) return `Explore the channel’s lore: ${store.read().lore.filter(item => item.status === 'approved').slice(0, 3).map(item => item.term).join(', ') || 'No approved entries yet'}. Try !lore <term> · ${publicUrl}?view=lore`;
-    const item = findLore(query);
+    const item = answerLoreQuestion(store.read().lore, query) ?? findLore(query);
     if (!item) return `No approved lore found for “${query.slice(0, 60)}”. Explore ${publicUrl}?view=lore`;
     return `${item.term}: ${item.explanation} ${item.clipUrl || `${publicUrl}?lore=${encodeURIComponent(item.id)}`}`;
   }
@@ -252,9 +253,12 @@ export function createApp({ store, mode = 'demo', password = '', publicUrl = 'ht
     rateLimit(req, 'ai', 20, 3_600_000);
     const captions = text(req.body.captions, 'Captions', 30_000, false);
     const clips: { url: string; title: string; transcript: string }[] = [];
-    if (req.body.clipUrl) clips.push({ url: clipUrl(req.body.clipUrl), title: text(req.body.clipTitle ?? 'Clip supplied by moderator', 'Clip title', 200), transcript: text(req.body.clipTranscript, 'Clip transcript', 15_000) });
+    if (req.body.clipUrl) clips.push({ url: clipUrl(req.body.clipUrl), title: text(req.body.clipTitle || 'Clip supplied by moderator', 'Clip title', 200), transcript: text(req.body.clipTranscript, 'Clip transcript', 15_000) });
     if (!captions && !clips.length && store.read().chat.length < 3) throw new HttpError(400, 'Add captions, a clip transcript, or a few live chat messages first.');
-    try { res.json({ count: await generateDrafts(captions, clips), message: 'Drafts are private until a moderator reviews them.' }); }
+    try {
+      const count = await generateDrafts(captions, clips);
+      res.json({ count, message: count ? `${count} draft${count === 1 ? '' : 's'} saved for moderator review.` : 'No new lore was supported by this context. Add a clear explanation or origin transcript.' });
+    }
     catch (error) { if (error instanceof HttpError) throw error; throw new HttpError(502, error instanceof Error ? error.message : 'AI drafting failed. Try again.'); }
   });
   app.post('/api/mod/recap', async (req, res) => {
