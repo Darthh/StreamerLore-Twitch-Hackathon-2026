@@ -2,6 +2,14 @@
 
 This procedure prepares the native panel and mobile experience. Building the ZIP does not register, approve, release, or activate an Extension in Twitch.
 
+## Current registration
+
+StreamLore is registered as **StreamLore Companion**, client ID `m7tirdtzbocxkfacsis37lvc81i4uc`. Version **0.1.0** enables **Panel** and **Mobile** and is in **Local Test**. [Open the registered version](https://dev.twitch.tv/console/extensions/m7tirdtzbocxkfacsis37lvc81i4uc/0.1.0/status).
+
+The steps below remain a reproducible launch guide. Registration is complete; public HTTPS hosting, the separate broadcaster OAuth application, connected testing, review materials, Twitch review, and release remain outstanding. A Local Test lifecycle state does not establish that the Extension has run successfully inside Twitch.
+
+## Launch process
+
 **Account prerequisite:** Enable two-factor authentication on the Twitch developer account in [Security settings](https://www.twitch.tv/settings/security). Twitch blocks Extension creation until 2FA is enabled. Complete that account-security step yourself; never put verification or recovery codes in project files or chat.
 
 1. **Run the EBS on persistent hosting.** The Extension Backend Service is the Node.js 24+ server in this repository. Run `npm install`, `npm run build`, and `npm start` behind a public HTTPS address. Keep its SQLite data and encryption key across restarts; an ephemeral function filesystem cannot preserve channel history or OAuth credentials. Hosting may have costs: check your account’s actual allowance before provisioning anything.
