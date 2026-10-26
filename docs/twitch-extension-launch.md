@@ -8,6 +8,18 @@ StreamLore is registered as **StreamLore Companion**, client ID `m7tirdtzbocxkfa
 
 The steps below remain a reproducible launch guide. Registration is complete; public HTTPS hosting, the separate broadcaster OAuth application, connected testing, review materials, Twitch review, and release remain outstanding. A Local Test lifecycle state does not establish that the Extension has run successfully inside Twitch.
 
+The registered version has `panel.html`, `mobile.html`, `config.html`, and `live.html` saved, with a 500px panel height. **Request Identity Link** is enabled, configuration uses **Custom/My Own Service**, and the required per-channel configuration string is empty. Extension chat-message capabilities remain disabled because this implementation uses broadcaster OAuth and Helix instead. The testing base URI is still Twitch's default `https://localhost:8080/`; replace it with a working testing origin before attempting a channel test.
+
+The supplied StreamLore logo is preserved in [`assets/streamlore-logo.png`](assets/streamlore-logo.png) and used in the repository README. It has not been uploaded to Twitch. The listing uploader requires these assets:
+
+| Asset | Twitch listing size |
+| --- | --- |
+| Logo | 100 × 100 PNG |
+| Discovery image | 300 × 200 PNG |
+| Extension screenshot | 1024 × 768 PNG |
+
+Upload the listing assets and provide actual author/support contacts and public legal URLs before review. Twitch currently flags the missing Privacy Notice for the mobile-enabled version.
+
 ## Launch process
 
 **Account prerequisite:** Enable two-factor authentication on the Twitch developer account in [Security settings](https://www.twitch.tv/settings/security). Twitch blocks Extension creation until 2FA is enabled. Complete that account-security step yourself; never put verification or recovery codes in project files or chat.
